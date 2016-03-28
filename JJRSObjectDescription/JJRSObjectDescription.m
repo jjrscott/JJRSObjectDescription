@@ -7,18 +7,55 @@
 
 #import "JJRSObjectDescription.h"
 
+#import <objc/runtime.h>
+
+#include <stdarg.h>
+
+#import <UIKit/UIKit.h>
+
+#define COLOR(rgb) [UIColor colorWithRed:(((rgb>>16) & 0xFF)/255.) green:(((rgb>>8) & 0xFF)/255.) blue:(((rgb>>0) & 0xFF)/255.) alpha:1]
+
+#define KEY_COLOR COLOR(0x3F6E74)
+#define STRING_COLOR COLOR(0xC41A16)
+#define PLAIN_COLOR COLOR(0x000000)
+#define KEYWORD_COLOR COLOR(0xAA0D91)
+#define NUMBER_COLOR COLOR(0x1C00CF)
+
+NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject)
+{
+    unsigned int propertyCount = 0;
+    objc_property_t *propertyList = class_copyPropertyList(object_getClass(anObject), &propertyCount);
+    
+    NSMutableArray *propertyNames = [NSMutableArray array];
+    
+    for (unsigned int propertyIndex = 0; propertyIndex<propertyCount; propertyIndex++)
+    {
+        NSString *propertyName = [[NSString alloc] initWithUTF8String:property_getName(propertyList[propertyIndex])];
+        [propertyNames addObject:propertyName];
+    }
+    
+    if (propertyList)
+    {
+        free(propertyList);
+    }
+    return [propertyNames copy];
+}
+
 @interface JJRSObjectDescription ()
 
-@property (nonatomic, readonly) NSString *buffer;
+@property (nonatomic, readonly) NSAttributedString *buffer;
+
+- (void)appendWithColor:(UIColor*)color format:(NSString *)format, ... NS_FORMAT_FUNCTION(2,3);
 
 @end
 
 @implementation JJRSObjectDescription
 {
-    NSMutableString *_buffer;
+    NSMutableAttributedString *_buffer;
     NSUInteger _depth;
-    NSMutableArray *_references;
+    NSHashTable *_references;
     NSDateFormatter *_rfc3339DateFormatter;
+    NSArray <NSString*> *_excludedPropertyNames;
 }
 
 -(instancetype)init
@@ -26,8 +63,8 @@
     self = [super init];
     if (self)
     {
-        _buffer = [NSMutableString string];
-        _references = [NSMutableArray array];
+        _buffer = [[NSMutableAttributedString alloc] init];
+        _references = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPersonality];
         
         /*
          https://developer.apple.com/library/mac/qa/qa1480/_index.html
@@ -37,6 +74,8 @@
         _rfc3339DateFormatter.locale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"];
         _rfc3339DateFormatter.dateFormat = @"yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'";
         _rfc3339DateFormatter.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
+        
+        _excludedPropertyNames = _JJRSObjectDescriptionGetPropertyNamesForObject(NSObject.new);
     }
     return self;
 }
@@ -46,7 +85,12 @@
     return _buffer;
 }
 
-+(NSString*)descriptionForObject:(id)rootObject
++(NSString * _Nonnull)descriptionForObject:(nullable id)rootObject
+{
+    return [[self attributedDescriptionForObject:rootObject] string];
+}
+
++(NSAttributedString * _Nonnull)attributedDescriptionForObject:(nullable id)rootObject
 {
     @autoreleasepool
     {
@@ -61,9 +105,25 @@
     return YES;
 }
 
+- (void)appendWithColor:(UIColor*)color format:(NSString *)format, ...
+{
+    va_list vl;
+    va_start(vl, format);
+    NSString *string = [[NSString alloc] initWithFormat:format arguments:vl];
+    va_end(vl);
+    
+    NSDictionary *attributes = @{
+                                 NSFontAttributeName : [UIFont fontWithName:@"Menlo" size:10.],
+                                 NSForegroundColorAttributeName : color
+                                 };
+    
+    NSAttributedString *attributedString = [[NSAttributedString alloc] initWithString:string attributes:attributes];
+    [_buffer appendAttributedString:attributedString];
+}
+
 -(void)padBuffer
 {
-    [_buffer appendString:[@"" stringByPaddingToLength:_depth*4 withString:@"    " startingAtIndex:0]];
+    [self appendWithColor:PLAIN_COLOR format:@"%@", [@"" stringByPaddingToLength:_depth*2 withString:@"    " startingAtIndex:0]];
 }
 
 - (void)encodeObject:(nullable __kindof NSObject<NSCoding>*)objv forKey:(NSString *)key
@@ -71,9 +131,9 @@
     [self padBuffer];
     if (key)
     {
-        [_buffer appendFormat:@"%@ = ", key];
+        [self appendWithColor:KEY_COLOR format:@"%@", key];
+        [self appendWithColor:PLAIN_COLOR format:@" = "];
     }
-
     [self _encodeObject:objv];
 }
 
@@ -81,13 +141,13 @@
 {
     if (!objv)
     {
-        [_buffer appendString:@"nil\n"];
+        [self appendWithColor:KEYWORD_COLOR format:@"nil\n"];
     }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSDictionary.class])
     {
         NSDictionary *typedObjv = objv;
         
-        [_buffer appendString:@"{\n"];
+        [self appendWithColor:PLAIN_COLOR format:@"{\n"];
         _depth++;
         [typedObjv enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop)
          {
@@ -95,13 +155,13 @@
          }];
         _depth--;
         [self padBuffer];
-        [_buffer appendString:@"}\n"];
+        [self appendWithColor:PLAIN_COLOR format:@"}\n"];
         
     }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSArray.class])
     {
         NSArray *typedObjv = objv;
-        [_buffer appendString:@"[\n"];
+        [self appendWithColor:PLAIN_COLOR format:@"[\n"];
         _depth++;
         [typedObjv enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop)
          {
@@ -110,67 +170,69 @@
          }];
         _depth--;
         [self padBuffer];
-        [_buffer appendString:@"]\n"];
+        [self appendWithColor:PLAIN_COLOR format:@"]\n"];
     }
     else if (NSString.class == objv.classForKeyedArchiver)
     {
         NSString *typedObjv = objv;
-        [_buffer appendFormat:@"\"%@\"\n", typedObjv];
+        [self appendWithColor:STRING_COLOR format:@"\"%@\"\n", typedObjv];
     }
     else if (NSNumber.class == objv.classForKeyedArchiver)
     {
         NSNumber *typedObjv = objv;
-        [_buffer appendFormat:@"%@\n", typedObjv];
+        [self appendWithColor:NUMBER_COLOR format:@"%@\n", typedObjv];
     }
     else if (NSUUID.class == objv.classForKeyedArchiver)
     {
         NSUUID *typedObjv = objv;
         [self padBuffer];
-        [_buffer appendFormat:@"%@\n", typedObjv];
+        [self appendWithColor:PLAIN_COLOR format:@"%@\n", typedObjv];
     }
     else if (NSDate.class == objv.classForKeyedArchiver)
     {
         NSDate *typedObjv = objv;
         [self padBuffer];
-        [_buffer appendFormat:@"%@\n", typedObjv];
+        [self appendWithColor:PLAIN_COLOR format:@"%@\n", typedObjv];
+    }
+    else if (NSURL.class == objv.classForKeyedArchiver)
+    {
+        NSURL *typedObjv = objv;
+        [self padBuffer];
+        [self appendWithColor:PLAIN_COLOR format:@"%@\n", typedObjv];
     }
     else if (![_references containsObject:objv])
     {
-            [_references addObject:objv];
+        [_references addObject:objv];
         
-        if ([objv conformsToProtocol:@protocol(NSCoding)])
+        NSUInteger bufferLength = _buffer.length;
+        
+        /*
+         Given we're never going to rely on this output we can try encodeWithCoder: whether the class
+         publicly conforms to NSCoding or not.
+        */
+        
+        @try
         {
-            [_buffer appendFormat:@"<%@: %p> {\n", NSStringFromClass(objv.class), objv];
+            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p> {\n", NSStringFromClass(objv.class), objv];
             
             _depth++;
+
+            [objv encodeWithCoder:self];
             
-            NSUInteger bufferLength = _buffer.length;
-            
-            @try
-            {
-                [objv encodeWithCoder:self];
-            }
-            @catch (NSException *exception)
-            {
-                [_buffer deleteCharactersInRange:NSMakeRange(bufferLength, _buffer.length - bufferLength)];
-                
-                [self padBuffer];
-                [_buffer appendFormat:@"!! Error = %@\n", exception];
-                [self padBuffer];
-                [_buffer appendFormat:@"!! Description = %@\n", objv.description];
-            }
             _depth--;
             [self padBuffer];
-            [_buffer appendString:@"}\n"];
+            [self appendWithColor:PLAIN_COLOR format:@"}\n"];
         }
-        else
+        @catch (NSException *exception)
         {
-            [_buffer appendFormat:@"<%@: %p> %@\n", NSStringFromClass(objv.class), objv, objv.description];
+            [_buffer deleteCharactersInRange:NSMakeRange(bufferLength, _buffer.length - bufferLength)];
+            
+            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), objv];
         }
     }
     else
     {
-        [_buffer appendFormat:@"<%@: %p>\n", NSStringFromClass(objv.class), objv];
+        [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), objv];
     }
 }
 
@@ -184,10 +246,11 @@
     [self padBuffer];
     if (key)
     {
-        [_buffer appendFormat:@"%@ = ", key];
+        [self appendWithColor:KEY_COLOR format:@"%@", key];
+        [self appendWithColor:PLAIN_COLOR format:@" = "];
     }
 
-    [_buffer appendFormat:@"%@\n", boolv ? @"true" : @"false"];
+    [self appendWithColor:KEYWORD_COLOR format:@"%@\n", boolv ? @"true" : @"false"];
 }
 
 - (void)encodeInt:(int)intv forKey:(NSString *)key
@@ -225,9 +288,10 @@
     [self padBuffer];
     if (key)
     {
-        [_buffer appendFormat:@"%@ = ", key];
+        [self appendWithColor:KEY_COLOR format:@"%@", key];
+        [self appendWithColor:PLAIN_COLOR format:@" = "];
     }
-    [_buffer appendFormat:@"%@\n", [NSData dataWithBytes:bytesp length:lenv]];
+    [self appendWithColor:PLAIN_COLOR format:@"%@\n", [NSData dataWithBytes:bytesp length:lenv]];
 }
 
 @end

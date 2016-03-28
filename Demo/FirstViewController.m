@@ -8,7 +8,11 @@
 
 #import "FirstViewController.h"
 
+#import "JJRSObjectDescription.h"
+
 @interface FirstViewController ()
+
+@property (nonatomic, weak) IBOutlet UITextView * textView;
 
 @end
 
@@ -22,6 +26,13 @@
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
+}
+
+-(void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    self.textView.attributedText = nil;
+    self.textView.attributedText = [JJRSObjectDescription attributedDescriptionForObject:self.view.window];
 }
 
 @end

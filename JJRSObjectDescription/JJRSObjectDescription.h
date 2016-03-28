@@ -9,6 +9,8 @@
 
 @interface JJRSObjectDescription : NSCoder
 
-+(NSString*)descriptionForObject:(id)anObject;
++(NSString * _Nonnull)descriptionForObject:(nullable id)anObject;
+
++(NSAttributedString * _Nonnull)attributedDescriptionForObject:(nullable id)anObject;
 
 @end
