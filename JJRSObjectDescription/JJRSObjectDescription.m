@@ -16,6 +16,7 @@
 #define COLOR(rgb) [UIColor colorWithRed:(((rgb>>16) & 0xFF)/255.) green:(((rgb>>8) & 0xFF)/255.) blue:(((rgb>>0) & 0xFF)/255.) alpha:1]
 
 #define KEY_COLOR COLOR(0x3F6E74)
+#define COMMENT_COLOR COLOR(0x007400)
 #define STRING_COLOR COLOR(0xC41A16)
 #define PLAIN_COLOR COLOR(0x000000)
 #define KEYWORD_COLOR COLOR(0xAA0D91)
@@ -95,7 +96,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     @autoreleasepool
     {
         JJRSObjectDescription *archiver = [[JJRSObjectDescription alloc] init];
-        [archiver _encodeObject:rootObject];
+        [archiver encodeObject:rootObject];
         return archiver.buffer;
     }
 }
@@ -134,10 +135,10 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self appendWithColor:KEY_COLOR format:@"%@", key];
         [self appendWithColor:PLAIN_COLOR format:@" = "];
     }
-    [self _encodeObject:objv];
+    [self encodeObject:objv];
 }
 
-- (void)_encodeObject:(nullable __kindof NSObject<NSCoding>*)objv
+- (void)encodeObject:(nullable __kindof NSObject<NSCoding>*)objv
 {
     if (!objv)
     {
@@ -165,8 +166,13 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         _depth++;
         [typedObjv enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop)
          {
+             if (idx > 0)
+             {
+                 [self padBuffer];
+                 [self appendWithColor:COMMENT_COLOR format:@"// %lu\n", (unsigned long)idx];
+             }
              [self padBuffer];
-             [self _encodeObject:obj];
+             [self encodeObject:obj];
          }];
         _depth--;
         [self padBuffer];
