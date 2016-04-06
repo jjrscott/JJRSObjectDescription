@@ -11,9 +11,17 @@
 
 #include <stdarg.h>
 
-#import <UIKit/UIKit.h>
 
+#if TARGET_OS_IOS
+#import <UIKit/UIKit.h>
 #define COLOR(rgb) [UIColor colorWithRed:(((rgb>>16) & 0xFF)/255.) green:(((rgb>>8) & 0xFF)/255.) blue:(((rgb>>0) & 0xFF)/255.) alpha:1]
+#define FONT(fontName, fontSize) [UIFont fontWithName:fontName size:fontSize]
+#elif TARGET_OS_MAC
+#import <AppKit/AppKit.h>
+#define COLOR(rgb) [NSColor colorWithRed:(((rgb>>16) & 0xFF)/255.) green:(((rgb>>8) & 0xFF)/255.) blue:(((rgb>>0) & 0xFF)/255.) alpha:1]
+#define FONT(fontName, fontSize) [NSFont fontWithName:fontName size:fontSize]
+#endif
+
 
 #define KEY_COLOR COLOR(0x3F6E74)
 #define COMMENT_COLOR COLOR(0x007400)
@@ -46,7 +54,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
 
 @property (nonatomic, readonly) NSAttributedString *buffer;
 
-- (void)appendWithColor:(UIColor*)color format:(NSString *)format, ... NS_FORMAT_FUNCTION(2,3);
+- (void)appendWithColor:(id)color format:(NSString *)format, ... NS_FORMAT_FUNCTION(2,3);
 
 @end
 
@@ -106,7 +114,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     return YES;
 }
 
-- (void)appendWithColor:(UIColor*)color format:(NSString *)format, ...
+- (void)appendWithColor:(id)color format:(NSString *)format, ...
 {
     va_list vl;
     va_start(vl, format);
@@ -114,7 +122,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     va_end(vl);
     
     NSDictionary *attributes = @{
-                                 NSFontAttributeName : [UIFont fontWithName:@"Menlo" size:10.],
+                                 NSFontAttributeName : FONT(@"Menlo", 10.),
                                  NSForegroundColorAttributeName : color
                                  };
     
