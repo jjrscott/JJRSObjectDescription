@@ -114,6 +114,11 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     return YES;
 }
 
+-(BOOL)requiresSecureCoding
+{
+    return NO;
+}
+
 - (void)appendWithColor:(id)color format:(NSString *)format, ...
 {
     va_list vl;
@@ -132,7 +137,10 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
 
 -(void)padBuffer
 {
-    [self appendWithColor:PLAIN_COLOR format:@"%@", [@"" stringByPaddingToLength:_depth*2 withString:@"    " startingAtIndex:0]];
+    if ([_buffer.string hasSuffix:@"\n"])
+    {
+        [self appendWithColor:PLAIN_COLOR format:@"%@", [@"" stringByPaddingToLength:_depth*2 withString:@"    " startingAtIndex:0]];
+    }
 }
 
 - (void)encodeObject:(nullable __kindof NSObject<NSCoding>*)objv forKey:(NSString *)key
@@ -150,12 +158,13 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
 {
     if (!objv)
     {
+        [self padBuffer];
         [self appendWithColor:KEYWORD_COLOR format:@"nil\n"];
     }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSDictionary.class])
     {
         NSDictionary *typedObjv = objv;
-        
+        [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"{\n"];
         _depth++;
         [typedObjv enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop)
@@ -170,6 +179,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSArray.class])
     {
         NSArray *typedObjv = objv;
+        [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"[\n"];
         _depth++;
         [typedObjv enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop)
@@ -189,11 +199,13 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     else if (NSString.class == objv.classForKeyedArchiver)
     {
         NSString *typedObjv = objv;
+        [self padBuffer];
         [self appendWithColor:STRING_COLOR format:@"\"%@\"\n", typedObjv];
     }
     else if (NSNumber.class == objv.classForKeyedArchiver)
     {
         NSNumber *typedObjv = objv;
+        [self padBuffer];
         [self appendWithColor:NUMBER_COLOR format:@"%@\n", typedObjv];
     }
     else if (NSUUID.class == objv.classForKeyedArchiver)
@@ -212,7 +224,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     {
         NSURL *typedObjv = objv;
         [self padBuffer];
-        [self appendWithColor:PLAIN_COLOR format:@"%@\n", typedObjv];
+        [self appendWithColor:STRING_COLOR format:@"%@\n", typedObjv];
     }
     else if (![_references containsObject:objv])
     {
@@ -227,6 +239,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         
         @try
         {
+            [self padBuffer];
             [self appendWithColor:PLAIN_COLOR format:@"<%@: %p> {\n", NSStringFromClass(objv.class), objv];
             
             _depth++;
@@ -269,43 +282,167 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
 
 - (void)encodeInt:(int)intv forKey:(NSString *)key
 {
-    NSNumber *JSONObject = [NSNumber numberWithInt:intv];
-    [self encodeObject:JSONObject forKey:key];
+    NSNumber *boxedObject = [NSNumber numberWithInt:intv];
+    [self encodeObject:boxedObject forKey:key];
 }
 
 - (void)encodeInt32:(int32_t)intv forKey:(NSString *)key
 {
-    NSNumber *JSONObject = [NSNumber numberWithInt:intv];
-    [self encodeObject:JSONObject forKey:key];
+    NSNumber *boxedObject = [NSNumber numberWithInt:intv];
+    [self encodeObject:boxedObject forKey:key];
 }
 
 - (void)encodeInt64:(int64_t)intv forKey:(NSString *)key
 {
-    NSNumber *JSONObject = [NSNumber numberWithLongLong:intv];
-    [self encodeObject:JSONObject forKey:key];
+    NSNumber *boxedObject = [NSNumber numberWithLongLong:intv];
+    [self encodeObject:boxedObject forKey:key];
 }
 
 - (void)encodeFloat:(float)realv forKey:(NSString *)key
 {
-    NSNumber *JSONObject = [NSNumber numberWithFloat:realv];
-    [self encodeObject:JSONObject forKey:key];
+    NSNumber *boxedObject = [NSNumber numberWithFloat:realv];
+    [self encodeObject:boxedObject forKey:key];
 }
 
 - (void)encodeDouble:(double)realv forKey:(NSString *)key
 {
-    NSNumber *JSONObject = [NSNumber numberWithDouble:realv];
-    [self encodeObject:JSONObject forKey:key];
+    NSNumber *boxedObject = [NSNumber numberWithDouble:realv];
+    [self encodeObject:boxedObject forKey:key];
 }
 
 - (void)encodeBytes:(nullable const uint8_t *)bytesp length:(NSUInteger)lenv forKey:(NSString *)key;
 {
-    [self padBuffer];
-    if (key)
-    {
-        [self appendWithColor:KEY_COLOR format:@"%@", key];
-        [self appendWithColor:PLAIN_COLOR format:@" = "];
-    }
-    [self appendWithColor:PLAIN_COLOR format:@"%@\n", [NSData dataWithBytes:bytesp length:lenv]];
+    NSData *boxedObject = [NSData dataWithBytes:bytesp length:lenv];
+    [self encodeObject:boxedObject forKey:key];
 }
+
+- (id)objectOfObjCType:(const char *)type at:(const void *)addr actualLength:(NSInteger*)actualLength
+{
+    switch (*type)
+    {
+            //        case _C_ID:
+            //        break;
+            //        case _C_CLASS:
+            //        break;
+            //        case _C_SEL:
+            //        break;
+            //        case _C_CHR:
+            //        break;
+            //        case _C_UCHR:
+            //        break;
+            //        case _C_SHT:
+            //        break;
+            //        case _C_USHT:
+            //        break;
+        case _C_INT:
+            if (actualLength)
+            {
+                *actualLength = sizeof(int);
+            }
+            return [NSNumber numberWithInt:*(int *)addr];
+            //        case _C_UINT:
+            //        break;
+            //        case _C_LNG:
+            //        break;
+            //        case _C_ULNG:
+            //        break;
+            //        case _C_LNG_LNG:
+            //        break;
+            //        case _C_ULNG_LNG:
+            //        break;
+            //        case _C_FLT:
+            //        break;
+            //        case _C_DBL:
+            //        break;
+            //        case _C_BFLD:
+            //        break;
+            //        case _C_BOOL:
+            //        break;
+            //        case _C_VOID:
+            //        break;
+            //        case _C_UNDEF:
+            //        break;
+            //        case _C_PTR:
+            //        break;
+            //        case _C_CHARPTR:
+            //        break;
+            //        case _C_ATOM:
+            //        break;
+            //        case _C_ARY_B:
+            //        break;
+            //        case _C_ARY_E:
+            //        break;
+            //        case _C_UNION_B:
+            //        break;
+            //        case _C_UNION_E:
+            //        break;
+            //        case _C_STRUCT_B:
+            //        break;
+            //        case _C_STRUCT_E:
+            //        break;
+            //        case _C_VECTOR:
+            //        break;
+            //        case _C_CONST:
+            //        break;
+    }
+    return @"---";
+}
+
+- (void)encodeValueOfObjCType:(const char *)type at:(const void *)addr
+{
+    id boxedObject = [self objectOfObjCType:type at:addr actualLength:NULL];
+    [self encodeObject:boxedObject];
+}
+
+- (void)encodeDataObject:(NSData *)data
+{
+    [self encodeObject:data];
+}
+
+- (void)encodeRootObject:(id)rootObject
+{
+    [self encodeObject:rootObject];
+}
+
+- (void)encodeBycopyObject:(nullable id)anObject
+{
+    [self encodeObject:anObject];
+}
+
+- (void)encodeByrefObject:(nullable id)anObject
+{
+    [self encodeObject:anObject];
+}
+
+- (void)encodeConditionalObject:(nullable id)object
+{
+    [self encodeObject:object];
+}
+
+- (void)encodeValuesOfObjCTypes:(const char *)types, ...
+{
+    
+}
+
+- (void)encodeArrayOfObjCType:(const char *)type count:(NSUInteger)count at:(const void *)array
+{
+    NSMutableArray *boxedArray = [NSMutableArray array];
+    NSInteger offset = 0;
+    for (NSInteger index=0; index<count; index++)
+    {
+        NSInteger actualLength = 0;
+        id boxedObject = [self objectOfObjCType:type at:array+offset actualLength:&actualLength];
+        offset += actualLength;
+        [boxedArray addObject:boxedObject];
+    }
+    [self encodeObject:boxedArray];
+}
+
+- (void)encodeBytes:(nullable const void *)byteaddr length:(NSUInteger)length
+{
+    NSData *boxedObject = [NSData dataWithBytes:byteaddr length:length];
+    [self encodeObject:boxedObject];
+}
+
 
 @end
