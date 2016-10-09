@@ -230,30 +230,26 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     {
         [_references addObject:objv];
         
-        NSUInteger bufferLength = _buffer.length;
-        
         /*
-         Given we're never going to rely on this output we can try encodeWithCoder: whether the class
+         Given we're never going to rely on this output we can test for encodeWithCoder: whether the class
          publicly conforms to NSCoding or not.
         */
         
-        @try
+        if ([objv respondsToSelector:@selector(encodeWithCoder:)])
         {
             [self padBuffer];
             [self appendWithColor:PLAIN_COLOR format:@"<%@: %p> {\n", NSStringFromClass(objv.class), objv];
             
             _depth++;
-
+            
             [objv encodeWithCoder:self];
             
             _depth--;
             [self padBuffer];
             [self appendWithColor:PLAIN_COLOR format:@"}\n"];
         }
-        @catch (NSException *exception)
+        else
         {
-            [_buffer deleteCharactersInRange:NSMakeRange(bufferLength, _buffer.length - bufferLength)];
-            
             [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), objv];
         }
     }
