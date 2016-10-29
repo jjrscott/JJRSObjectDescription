@@ -196,31 +196,31 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"]\n"];
     }
-    else if (NSString.class == objv.classForKeyedArchiver)
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSString.class])
     {
         NSString *typedObjv = objv;
         [self padBuffer];
         [self appendWithColor:STRING_COLOR format:@"\"%@\"\n", typedObjv];
     }
-    else if (NSNumber.class == objv.classForKeyedArchiver)
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSNumber.class])
     {
         NSNumber *typedObjv = objv;
         [self padBuffer];
         [self appendWithColor:NUMBER_COLOR format:@"%@\n", typedObjv];
     }
-    else if (NSUUID.class == objv.classForKeyedArchiver)
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSUUID.class])
     {
         NSUUID *typedObjv = objv;
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"%@\n", typedObjv];
     }
-    else if (NSDate.class == objv.classForKeyedArchiver)
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSDate.class])
     {
         NSDate *typedObjv = objv;
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"%@\n", typedObjv];
     }
-    else if (NSURL.class == objv.classForKeyedArchiver)
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSURL.class])
     {
         NSURL *typedObjv = objv;
         [self padBuffer];
