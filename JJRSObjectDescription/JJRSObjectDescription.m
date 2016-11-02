@@ -226,6 +226,12 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self padBuffer];
         [self appendWithColor:STRING_COLOR format:@"%@\n", typedObjv];
     }
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSData.class])
+    {
+        NSData *typedObjv = objv;
+        [self padBuffer];
+        [self appendWithColor:STRING_COLOR format:@"%@\n", typedObjv];
+    }
     else if (![_references containsObject:objv])
     {
         [_references addObject:objv];
