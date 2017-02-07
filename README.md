@@ -17,4 +17,4 @@ NSLog(@"%@", [JJRSObjectDescription descriptionForObject:yourObject]);
 
 It's that easy.
 
-Note that the output from  `-[JJRSObjectDescription descriptionForObject:]` is for humans only, just like `-[NSObject description]`.
+Note that the output from  `+[JJRSObjectDescription descriptionForObject:]` is for humans only, just like `-[NSObject description]`.
