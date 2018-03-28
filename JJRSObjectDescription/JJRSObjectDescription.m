@@ -161,6 +161,11 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self padBuffer];
         [self appendWithColor:KEYWORD_COLOR format:@"nil\n"];
     }
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSNull.class])
+    {
+        [self padBuffer];
+        [self appendWithColor:KEYWORD_COLOR format:@"null\n"];
+    }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSDictionary.class])
     {
         NSDictionary *typedObjv = objv;
@@ -230,7 +235,41 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     {
         NSData *typedObjv = objv;
         [self padBuffer];
-        [self appendWithColor:STRING_COLOR format:@"%@\n", typedObjv];
+        
+        NSInteger maxLength = 1024;
+        
+        [self appendWithColor:STRING_COLOR format:@"<"];
+
+        [typedObjv enumerateByteRangesUsingBlock:^(const void * _Nonnull bytes, NSRange byteRange, BOOL * _Nonnull stop) {
+            
+            const unsigned char *chars = bytes;
+            
+            for (NSInteger offset=0; offset<byteRange.length; offset++)
+            {
+                [self appendWithColor:STRING_COLOR format:@"%02x", chars[offset]];
+                const NSInteger nextIndex = offset + byteRange.location + 1;
+
+                if (nextIndex >= typedObjv.length)
+                {
+                    *stop = YES;
+                    break;
+                }
+                
+                if (0 == nextIndex % 4)
+                {
+                    [self appendWithColor:STRING_COLOR format:@" "];
+                }
+                
+                if(nextIndex >= maxLength)
+                {
+                    [self appendWithColor:PLAIN_COLOR format:@"..."];
+                    *stop = YES;
+                    break;
+                }
+            }
+        }];
+        
+        [self appendWithColor:STRING_COLOR format:@">\n"];
     }
     else if (![_references containsObject:objv])
     {
@@ -244,7 +283,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         if ([objv respondsToSelector:@selector(encodeWithCoder:)])
         {
             [self padBuffer];
-            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p> {\n", NSStringFromClass(objv.class), objv];
+            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p> {\n", NSStringFromClass(objv.class), (__bridge void*)objv];
             
             _depth++;
             
@@ -256,12 +295,12 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         }
         else
         {
-            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), objv];
+            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), (__bridge void*)objv];
         }
     }
     else
     {
-        [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), objv];
+        [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), (__bridge void*)objv];
     }
 }
 
@@ -433,7 +472,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     for (NSInteger index=0; index<count; index++)
     {
         NSInteger actualLength = 0;
-        id boxedObject = [self objectOfObjCType:type at:array+offset actualLength:&actualLength];
+        id boxedObject = [self objectOfObjCType:type at:(void*)(((char *)array)+offset) actualLength:&actualLength];
         offset += actualLength;
         [boxedArray addObject:boxedObject];
     }
