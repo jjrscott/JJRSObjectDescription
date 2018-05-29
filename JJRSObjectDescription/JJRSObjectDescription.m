@@ -201,6 +201,21 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"]\n"];
     }
+    else if ([objv.classForKeyedArchiver isSubclassOfClass:NSSet.class])
+    {
+        NSSet *typedObjv = objv;
+        [self padBuffer];
+        [self appendWithColor:PLAIN_COLOR format:@"(\n"];
+        _depth++;
+        [typedObjv enumerateObjectsUsingBlock:^(id  _Nonnull obj, BOOL * _Nonnull stop)
+         {
+             [self padBuffer];
+             [self encodeObject:obj];
+         }];
+        _depth--;
+        [self padBuffer];
+        [self appendWithColor:PLAIN_COLOR format:@")\n"];
+    }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSString.class])
     {
         NSString *typedObjv = objv;
