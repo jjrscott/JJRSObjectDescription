@@ -189,11 +189,8 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         _depth++;
         [typedObjv enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop)
          {
-             if (idx > 0)
-             {
-                 [self padBuffer];
-                 [self appendWithColor:COMMENT_COLOR format:@"// %lu\n", (unsigned long)idx];
-             }
+             [self padBuffer];
+             [self appendWithColor:COMMENT_COLOR format:@"%lu = ", (unsigned long)idx];
              [self padBuffer];
              [self encodeObject:obj];
          }];
