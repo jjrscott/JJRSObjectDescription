@@ -23,12 +23,13 @@
 #endif
 
 
-#define KEY_COLOR COLOR(0x3F6E74)
-#define COMMENT_COLOR COLOR(0x007400)
-#define STRING_COLOR COLOR(0xC41A16)
-#define PLAIN_COLOR COLOR(0x000000)
-#define KEYWORD_COLOR COLOR(0xAA0D91)
-#define NUMBER_COLOR COLOR(0x1C00CF)
+#define KEY_COLOR COLOR(0x55747C)
+#define COMMENT_COLOR COLOR(0x41B645)
+#define STRING_COLOR COLOR(0xDB2C38)
+#define REPLACEMENT_CHARACTER_COLOR COLOR(0xFFFFFF)
+#define PLAIN_COLOR COLOR(0xFFFFFF)
+#define KEYWORD_COLOR COLOR(0xB21889)
+#define NUMBER_COLOR COLOR(0x786DC4)
 
 NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject)
 {
@@ -135,6 +136,12 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     [_buffer appendAttributedString:attributedString];
 }
 
+- (void)appendObjectPrefix:(nullable __kindof NSObject*)objv
+{
+//    [self appendWithColor:PLAIN_COLOR format:@"<%@ %p>", NSStringFromClass(objv.class), (__bridge void*)objv];
+    [self appendWithColor:PLAIN_COLOR format:@"%@", NSStringFromClass(objv.class)];
+}
+
 -(void)padBuffer
 {
     if ([_buffer.string hasSuffix:@"\n"])
@@ -217,7 +224,36 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     {
         NSString *typedObjv = objv;
         [self padBuffer];
-        [self appendWithColor:STRING_COLOR format:@"\"%@\"\n", typedObjv];
+//        [self appendWithColor:STRING_COLOR format:@"\""];
+        
+        NSDictionary *characterReplacements = @{
+                                                @"\x00" : @"␀", @"\x01" : @"␁", @"\x02" : @"␂", @"\x03" : @"␃",
+                                                @"\x04" : @"␄", @"\x05" : @"␅", @"\x06" : @"␆", @"\x07" : @"␇",
+                                                @"\x08" : @"␈", @"\x09" : @"␉", @"\x0a" : @"␊", @"\x0b" : @"␋",
+                                                @"\x0c" : @"␌", @"\x0d" : @"␍", @"\x0e" : @"␎", @"\x0f" : @"␏",
+                                                @"\x10" : @"␐", @"\x11" : @"␑", @"\x12" : @"␒", @"\x13" : @"␓",
+                                                @"\x14" : @"␔", @"\x15" : @"␕", @"\x16" : @"␖", @"\x17" : @"␗",
+                                                @"\x18" : @"␘", @"\x19" : @"␙", @"\x1a" : @"␚", @"\x1b" : @"␛",
+                                                @"\x1c" : @"␜", @"\x1d" : @"␝", @"\x1e" : @"␞", @"\x1f" : @"␟",
+                                                @"\x20" : @"␠", @"\x7f" : @"␡", @"\n" : @"␤",
+                                                };
+        
+        [typedObjv enumerateSubstringsInRange:NSMakeRange(0, typedObjv.length)
+                                      options:NSStringEnumerationByComposedCharacterSequences
+                                   usingBlock:^(NSString * _Nullable substring, NSRange substringRange, NSRange enclosingRange, BOOL * _Nonnull stop)
+         {
+             
+             if (characterReplacements[substring])
+             {
+                 [self appendWithColor:REPLACEMENT_CHARACTER_COLOR format:@"%@", characterReplacements[substring]];
+             }
+             else
+             {
+                 [self appendWithColor:STRING_COLOR format:@"%@", substring];
+             }
+         }];
+        
+        [self appendWithColor:STRING_COLOR format:@"\n"];
     }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSNumber.class])
     {
@@ -295,7 +331,8 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         if ([objv respondsToSelector:@selector(encodeWithCoder:)])
         {
             [self padBuffer];
-            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p> {\n", NSStringFromClass(objv.class), (__bridge void*)objv];
+            [self appendObjectPrefix:objv];
+            [self appendWithColor:PLAIN_COLOR format:@" {\n"];
             
             _depth++;
             
@@ -307,12 +344,14 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         }
         else
         {
-            [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), (__bridge void*)objv];
+            [self appendObjectPrefix:objv];
+            [self appendWithColor:PLAIN_COLOR format:@" {\n"];
         }
     }
     else
     {
-        [self appendWithColor:PLAIN_COLOR format:@"<%@: %p>\n", NSStringFromClass(objv.class), (__bridge void*)objv];
+        [self appendObjectPrefix:objv];
+        [self appendWithColor:PLAIN_COLOR format:@" {\n"];
     }
 }
 
