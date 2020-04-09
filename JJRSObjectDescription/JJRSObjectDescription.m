@@ -15,11 +15,11 @@
 #if TARGET_OS_IOS
 #import <UIKit/UIKit.h>
 #define COLOR(rgb) [UIColor colorWithRed:(((rgb>>16) & 0xFF)/255.) green:(((rgb>>8) & 0xFF)/255.) blue:(((rgb>>0) & 0xFF)/255.) alpha:1]
-#define FONT(fontName, fontSize) [UIFont fontWithName:fontName size:fontSize]
+#define FONT(fontSize) [UIFont monospacedSystemFontOfSize:fontSize weight:UIFontWeightRegular]
 #elif TARGET_OS_MAC
 #import <AppKit/AppKit.h>
 #define COLOR(rgb) [NSColor colorWithRed:(((rgb>>16) & 0xFF)/255.) green:(((rgb>>8) & 0xFF)/255.) blue:(((rgb>>0) & 0xFF)/255.) alpha:1]
-#define FONT(fontName, fontSize) [NSFont fontWithName:fontName size:fontSize]
+#define FONT(fontSize) [NSFont userFixedPitchFontOfSize:fontSize]
 #endif
 
 
@@ -128,7 +128,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     va_end(vl);
     
     NSDictionary *attributes = @{
-                                 NSFontAttributeName : FONT(@"Menlo", 10.),
+                                 NSFontAttributeName : FONT(11.),
                                  NSForegroundColorAttributeName : color
                                  };
     
@@ -179,10 +179,10 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"{\n"];
         _depth++;
-        [typedObjv enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop)
-         {
-             [self encodeObject:obj forKey:key];
-         }];
+        NSArray *sortedKeys = [typedObjv.allKeys sortedArrayUsingSelector:@selector(compare:)];
+        for (id key in sortedKeys) {
+            [self encodeObject:typedObjv[key] forKey:key];
+        }
         _depth--;
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"}\n"];
@@ -211,11 +211,11 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"(\n"];
         _depth++;
-        [typedObjv enumerateObjectsUsingBlock:^(id  _Nonnull obj, BOOL * _Nonnull stop)
-         {
-             [self padBuffer];
-             [self encodeObject:obj];
-         }];
+        NSArray *sortedObjects = [typedObjv.allObjects sortedArrayUsingSelector:@selector(compare:)];
+        for (id obj in sortedObjects) {
+            [self padBuffer];
+            [self encodeObject:obj];
+        }
         _depth--;
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@")\n"];
@@ -259,7 +259,31 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     {
         NSNumber *typedObjv = objv;
         [self padBuffer];
-        [self appendWithColor:NUMBER_COLOR format:@"%@\n", typedObjv];
+        if (typedObjv == (__bridge id) kCFBooleanTrue || typedObjv == (__bridge id) kCFBooleanFalse)
+        {
+            [self appendWithColor:KEYWORD_COLOR format:@"%@\n", typedObjv.boolValue ? @"true" : @"false"];
+        }
+        else
+        {
+            NSString *typeName;
+            switch (*typedObjv.objCType) {
+                case _C_CHR: typeName = @"char"; break;
+                case _C_UCHR: typeName = @"unsigned char"; break;
+                case _C_SHT: typeName = @"short"; break;
+                case _C_USHT: typeName = @"unsigned short"; break;
+                case _C_INT: typeName = @"int"; break;
+                case _C_UINT: typeName = @"unsigned int"; break;
+                case _C_LNG: typeName = @"long"; break;
+                case _C_ULNG: typeName = @"unsigned long"; break;
+                case _C_LNG_LNG: typeName = @"long long"; break;
+                case _C_ULNG_LNG: typeName = @"unsigned long long"; break;
+                case _C_FLT: typeName = @"float"; break;
+                case _C_DBL: typeName = @"double"; break;
+                default: break;
+            }
+            if (typeName) [self appendWithColor:KEYWORD_COLOR format:@"%@ ", typeName];
+            [self appendWithColor:NUMBER_COLOR format:@"%@\n", typedObjv];
+        }
     }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSUUID.class])
     {
@@ -362,14 +386,8 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
 
 - (void)encodeBool:(BOOL)boolv forKey:(NSString *)key
 {
-    [self padBuffer];
-    if (key)
-    {
-        [self appendWithColor:KEY_COLOR format:@"%@", key];
-        [self appendWithColor:PLAIN_COLOR format:@" = "];
-    }
-
-    [self appendWithColor:KEYWORD_COLOR format:@"%@\n", boolv ? @"true" : @"false"];
+    NSNumber *boxedObject = [NSNumber numberWithBool:boolv];
+    [self encodeObject:boxedObject forKey:key];
 }
 
 - (void)encodeInt:(int)intv forKey:(NSString *)key
