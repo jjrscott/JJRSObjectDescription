@@ -24,6 +24,7 @@
 
 
 #define KEY_COLOR COLOR(0x55747C)
+#define CLASS_COLOR COLOR(0x919191)
 #define COMMENT_COLOR COLOR(0x41B645)
 #define STRING_COLOR COLOR(0xDB2C38)
 #define REPLACEMENT_CHARACTER_COLOR COLOR(0xFFFFFF)
@@ -139,7 +140,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
 - (void)appendObjectPrefix:(nullable __kindof NSObject*)objv
 {
 //    [self appendWithColor:PLAIN_COLOR format:@"<%@ %p>", NSStringFromClass(objv.class), (__bridge void*)objv];
-    [self appendWithColor:PLAIN_COLOR format:@"%@", NSStringFromClass(objv.class)];
+    [self appendWithColor:CLASS_COLOR format:@"%@", NSStringFromClass(objv.class)];
 }
 
 -(void)padBuffer
@@ -265,23 +266,23 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         }
         else
         {
-            NSString *typeName;
-            switch (*typedObjv.objCType) {
-                case _C_CHR: typeName = @"char"; break;
-                case _C_UCHR: typeName = @"unsigned char"; break;
-                case _C_SHT: typeName = @"short"; break;
-                case _C_USHT: typeName = @"unsigned short"; break;
-                case _C_INT: typeName = @"int"; break;
-                case _C_UINT: typeName = @"unsigned int"; break;
-                case _C_LNG: typeName = @"long"; break;
-                case _C_ULNG: typeName = @"unsigned long"; break;
-                case _C_LNG_LNG: typeName = @"long long"; break;
-                case _C_ULNG_LNG: typeName = @"unsigned long long"; break;
-                case _C_FLT: typeName = @"float"; break;
-                case _C_DBL: typeName = @"double"; break;
-                default: break;
-            }
-            if (typeName) [self appendWithColor:KEYWORD_COLOR format:@"%@ ", typeName];
+//            NSString *typeName;
+//            switch (*typedObjv.objCType) {
+//                case _C_CHR: typeName = @"char"; break;
+//                case _C_UCHR: typeName = @"unsigned char"; break;
+//                case _C_SHT: typeName = @"short"; break;
+//                case _C_USHT: typeName = @"unsigned short"; break;
+//                case _C_INT: typeName = @"int"; break;
+//                case _C_UINT: typeName = @"unsigned int"; break;
+//                case _C_LNG: typeName = @"long"; break;
+//                case _C_ULNG: typeName = @"unsigned long"; break;
+//                case _C_LNG_LNG: typeName = @"long long"; break;
+//                case _C_ULNG_LNG: typeName = @"unsigned long long"; break;
+//                case _C_FLT: typeName = @"float"; break;
+//                case _C_DBL: typeName = @"double"; break;
+//                default: break;
+//            }
+//            if (typeName) [self appendWithColor:KEYWORD_COLOR format:@"%@ ", typeName];
             [self appendWithColor:NUMBER_COLOR format:@"%@\n", typedObjv];
         }
     }
@@ -308,7 +309,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         NSData *typedObjv = objv;
         [self padBuffer];
         
-        NSInteger maxLength = 1024;
+        NSInteger maxLength = 64;
         
         [self appendWithColor:STRING_COLOR format:@"<"];
 
@@ -375,7 +376,7 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     else
     {
         [self appendObjectPrefix:objv];
-        [self appendWithColor:PLAIN_COLOR format:@" {\n"];
+        [self appendWithColor:PLAIN_COLOR format:@" { ... }\n"];
     }
 }
 
