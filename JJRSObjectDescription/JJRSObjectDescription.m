@@ -178,16 +178,30 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     {
         NSDictionary *typedObjv = objv;
         [self padBuffer];
-        [self appendWithColor:PLAIN_COLOR format:@"{\n"];
-        _depth++;
-        NSArray *sortedKeys = [typedObjv.allKeys sortedArrayUsingSelector:@selector(compare:)];
-        for (id key in sortedKeys) {
-            [self encodeObject:typedObjv[key] forKey:key];
+        NSInteger minCountRequired = 1;
+        if (typedObjv[@"$isa"])
+        {
+            minCountRequired = 2;
+            [self appendWithColor:CLASS_COLOR format:@"%@", typedObjv[@"$isa"]];
+            [self appendWithColor:PLAIN_COLOR format:@" "];
         }
-        _depth--;
-        [self padBuffer];
-        [self appendWithColor:PLAIN_COLOR format:@"}\n"];
         
+        if (typedObjv.count >= minCountRequired) {
+            [self appendWithColor:PLAIN_COLOR format:@"{\n"];
+            _depth++;
+            NSArray *sortedKeys = [typedObjv.allKeys sortedArrayUsingSelector:@selector(compare:)];
+            for (id key in sortedKeys) {
+                if ([key isEqual:@"$isa"]) continue;
+                [self encodeObject:typedObjv[key] forKey:key];
+            }
+            _depth--;
+            [self padBuffer];
+            [self appendWithColor:PLAIN_COLOR format:@"}\n"];
+        }
+        else
+        {
+            [self appendWithColor:PLAIN_COLOR format:@"{}\n"];
+        }
     }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSArray.class])
     {
@@ -212,7 +226,9 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
         [self padBuffer];
         [self appendWithColor:PLAIN_COLOR format:@"(\n"];
         _depth++;
-        NSArray *sortedObjects = [typedObjv.allObjects sortedArrayUsingSelector:@selector(compare:)];
+        NSArray *sortedObjects = [typedObjv.allObjects sortedArrayUsingComparator:^NSComparisonResult(id  _Nonnull obj1, id  _Nonnull obj2) {
+            return [[obj1 description] compare:[obj2 description]];
+        }];
         for (id obj in sortedObjects) {
             [self padBuffer];
             [self encodeObject:obj];
@@ -225,36 +241,41 @@ NSArray <NSString*> *_JJRSObjectDescriptionGetPropertyNamesForObject(id anObject
     {
         NSString *typedObjv = objv;
         [self padBuffer];
-//        [self appendWithColor:STRING_COLOR format:@"\""];
         
-        NSDictionary *characterReplacements = @{
-                                                @"\x00" : @"␀", @"\x01" : @"␁", @"\x02" : @"␂", @"\x03" : @"␃",
-                                                @"\x04" : @"␄", @"\x05" : @"␅", @"\x06" : @"␆", @"\x07" : @"␇",
-                                                @"\x08" : @"␈", @"\x09" : @"␉", @"\x0a" : @"␊", @"\x0b" : @"␋",
-                                                @"\x0c" : @"␌", @"\x0d" : @"␍", @"\x0e" : @"␎", @"\x0f" : @"␏",
-                                                @"\x10" : @"␐", @"\x11" : @"␑", @"\x12" : @"␒", @"\x13" : @"␓",
-                                                @"\x14" : @"␔", @"\x15" : @"␕", @"\x16" : @"␖", @"\x17" : @"␗",
-                                                @"\x18" : @"␘", @"\x19" : @"␙", @"\x1a" : @"␚", @"\x1b" : @"␛",
-                                                @"\x1c" : @"␜", @"\x1d" : @"␝", @"\x1e" : @"␞", @"\x1f" : @"␟",
-                                                @"\x20" : @"␠", @"\x7f" : @"␡", @"\n" : @"␤",
-                                                };
-        
-        [typedObjv enumerateSubstringsInRange:NSMakeRange(0, typedObjv.length)
-                                      options:NSStringEnumerationByComposedCharacterSequences
-                                   usingBlock:^(NSString * _Nullable substring, NSRange substringRange, NSRange enclosingRange, BOOL * _Nonnull stop)
-         {
-             
-             if (characterReplacements[substring])
+        if (typedObjv.length) {
+            NSDictionary *characterReplacements = @{
+                                                    @"\x00" : @"␀", @"\x01" : @"␁", @"\x02" : @"␂", @"\x03" : @"␃",
+                                                    @"\x04" : @"␄", @"\x05" : @"␅", @"\x06" : @"␆", @"\x07" : @"␇",
+                                                    @"\x08" : @"␈", @"\x09" : @"␉", @"\x0a" : @"␊", @"\x0b" : @"␋",
+                                                    @"\x0c" : @"␌", @"\x0d" : @"␍", @"\x0e" : @"␎", @"\x0f" : @"␏",
+                                                    @"\x10" : @"␐", @"\x11" : @"␑", @"\x12" : @"␒", @"\x13" : @"␓",
+                                                    @"\x14" : @"␔", @"\x15" : @"␕", @"\x16" : @"␖", @"\x17" : @"␗",
+                                                    @"\x18" : @"␘", @"\x19" : @"␙", @"\x1a" : @"␚", @"\x1b" : @"␛",
+                                                    @"\x1c" : @"␜", @"\x1d" : @"␝", @"\x1e" : @"␞", @"\x1f" : @"␟",
+                                                    @"\x20" : @"␠", @"\x7f" : @"␡", @"\n" : @"␤",
+                                                    };
+            
+            [typedObjv enumerateSubstringsInRange:NSMakeRange(0, typedObjv.length)
+                                          options:NSStringEnumerationByComposedCharacterSequences
+                                       usingBlock:^(NSString * _Nullable substring, NSRange substringRange, NSRange enclosingRange, BOOL * _Nonnull stop)
              {
-                 [self appendWithColor:REPLACEMENT_CHARACTER_COLOR format:@"%@", characterReplacements[substring]];
-             }
-             else
-             {
-                 [self appendWithColor:STRING_COLOR format:@"%@", substring];
-             }
-         }];
-        
-        [self appendWithColor:STRING_COLOR format:@"\n"];
+                 
+                 if (characterReplacements[substring])
+                 {
+                     [self appendWithColor:REPLACEMENT_CHARACTER_COLOR format:@"%@", characterReplacements[substring]];
+                 }
+                 else
+                 {
+                     [self appendWithColor:STRING_COLOR format:@"%@", substring];
+                 }
+             }];
+            
+            [self appendWithColor:PLAIN_COLOR format:@"\n"];
+        }
+        else
+        {
+            [self appendWithColor:KEYWORD_COLOR format:@"ε\n"];
+        }
     }
     else if ([objv.classForKeyedArchiver isSubclassOfClass:NSNumber.class])
     {
